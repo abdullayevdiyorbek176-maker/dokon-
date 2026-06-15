@@ -33,7 +33,8 @@ async def sale_new_start(message: Message, state: FSMContext,
         customers = await conn.fetch(
             "SELECT id, name, phone FROM customers WHERE shop_id=$1 ORDER BY name", shop_id
         )
-    items = [{"id": c["id"], "label": f"{c['name']} ({c['phone'] or 'tel yo\'q'})"} for c in customers]
+    _no_tel = "tel yo'q"
+    items = [{"id": c["id"], "label": f"{c['name']} ({c['phone'] or _no_tel})"} for c in customers]
     items.insert(0, {"id": 0, "label": "🚶 Naqd (mijoz kiritmasdan)"})
     items.append({"id": -1, "label": "➕ Yangi mijoz"})
     await state.update_data(cart=[], total_som=0.0, total_usd=0.0, cost_som=0.0,

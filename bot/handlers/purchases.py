@@ -32,7 +32,8 @@ async def purchase_new_start(message: Message, state: FSMContext,
         suppliers = await conn.fetch(
             "SELECT id, name, phone FROM suppliers WHERE shop_id=$1 ORDER BY name", shop_id
         )
-    items = [{"id": s["id"], "label": f"{s['name']} ({s['phone'] or 'tel yo\'q'})"} for s in suppliers]
+    _no_tel = "tel yo'q"
+    items = [{"id": s["id"], "label": f"{s['name']} ({s['phone'] or _no_tel})"} for s in suppliers]
     items.append({"id": 0, "label": "➕ Yangi taminotchi"})
     items.append({"id": -1, "label": "🔄 Taminotchisiz"})
     await state.update_data(items=[], total_som=0.0, total_usd=0.0,
