@@ -88,8 +88,9 @@ async def toggle_currency(cb: CallbackQuery,
         if sess.get("shop_id") == shop_id:
             user_sessions[uid][field] = new_val
 
-    new_use_som = user_sessions[cb.from_user.id]["use_som"]
-    new_use_usd = user_sessions[cb.from_user.id]["use_usd"]
+    sess = user_sessions.get(cb.from_user.id, {})
+    new_use_som = sess.get("use_som", True)
+    new_use_usd = sess.get("use_usd", True)
 
     await cb.message.edit_reply_markup(reply_markup=_currency_kb(new_use_som, new_use_usd))
     status = "✅ Yoqildi" if new_val else "❌ O'chirildi"

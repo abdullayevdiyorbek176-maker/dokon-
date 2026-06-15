@@ -46,6 +46,35 @@ async def customers_list(message: Message, shop_id: int = None):
         await message.answer(chunk, parse_mode="HTML")
 
 
+@router.message(F.text == "💳 Qarz to'lash (mijoz)")
+async def customer_select_for_debt(message: Message, state: FSMContext, shop_id: int = None):
+    if shop_id is None:
+        return
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT id, name, debt_som FROM customers
+               WHERE shop_id=$1 AND debt_som > 0 ORDER BY name""",
+            shop_id
+        )
+    if not rows:
+        await message.answer("✅ Qarzli mijoz yo'q!")
+        return
+    items = [{"id": r["id"], "label": f"{r['name']} — {r['debt_som']:,.0f} so'm"} for r in rows]
+    await message.answer("👤 Mijozni tanlang:", reply_markup=inline_items_kb(items, "pay_cust"))
+    await state.set_state(CustomerSt.selected)
+
+
+@router.callback_query(CustomerSt.selected, F.data.startswith("pay_cust:"))
+async def customer_debt_pay_select(cb: CallbackQuery, state: FSMContext):
+    cust_id = int(cb.data.split(":")[1])
+    await state.update_data(cust_id=cust_id)
+    await cb.message.edit_reply_markup()
+    await cb.message.answer("💰 To'lov miqdori (so'm):", reply_markup=cancel_kb())
+    await state.set_state(CustomerSt.paying_debt_som)
+    await cb.answer()
+
+
 @router.message(F.text == "💳 Qarzlar")
 async def customers_debts(message: Message, shop_id: int = None):
     if shop_id is None:

@@ -45,17 +45,42 @@ async def purchase_new_start(message: Message, state: FSMContext,
 @router.callback_query(PurchaseSt.selecting_supplier, F.data.startswith("pur_sup:"))
 async def purchase_supplier_selected(cb: CallbackQuery, state: FSMContext, shop_id: int = None):
     sup_id = int(cb.data.split(":")[1])
-    await state.update_data(supplier_id=sup_id if sup_id > 0 else None)
     await cb.message.edit_reply_markup()
     if sup_id == 0:
+        await state.update_data(supplier_id=None, new_sup_mode=True)
         await cb.message.answer(
             "🏭 Yangi taminotchi nomi:", reply_markup=cancel_kb()
         )
-        await state.set_state(None)
+        await state.set_state(PurchaseSt.selecting_supplier)
         await cb.answer()
         return
+    await state.update_data(supplier_id=sup_id if sup_id > 0 else None)
     await _ask_product(cb.message, state, shop_id)
     await cb.answer()
+
+
+@router.message(PurchaseSt.selecting_supplier)
+async def purchase_new_supplier_name(message: Message, state: FSMContext, shop_id: int = None):
+    if message.text == "❌ Bekor qilish":
+        await state.clear()
+        await message.answer("📥 Kirim", reply_markup=purchases_kb())
+        return
+    data = await state.get_data()
+    if not data.get("new_sup_mode"):
+        return  # hali inline tugma bosilmagan, xabarni e'tiborsiz qoldir
+    name = message.text.strip()
+    if len(name) < 2:
+        await message.answer("⚠️ Nom kamida 2 harf:")
+        return
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO suppliers (shop_id, name) VALUES ($1,$2) RETURNING id",
+            shop_id, name
+        )
+    await state.update_data(supplier_id=row["id"], new_sup_mode=False)
+    await message.answer(f"✅ <b>{name}</b> taminotchi qo'shildi!", parse_mode="HTML")
+    await _ask_product(message, state, shop_id)
 
 
 async def _ask_product(message, state, shop_id):

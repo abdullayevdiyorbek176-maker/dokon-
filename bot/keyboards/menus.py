@@ -90,8 +90,9 @@ def customers_kb() -> ReplyKeyboardMarkup:
     )
     builder.row(
         KeyboardButton(text="💳 Qarzlar"),
-        KeyboardButton(text="⬅️ Orqaga"),
+        KeyboardButton(text="💳 Qarz to'lash (mijoz)"),
     )
+    builder.row(KeyboardButton(text="⬅️ Orqaga"))
     return builder.as_markup(resize_keyboard=True)
 
 
@@ -103,8 +104,9 @@ def suppliers_kb() -> ReplyKeyboardMarkup:
     )
     builder.row(
         KeyboardButton(text="💳 Taminotchi qarzlar"),
-        KeyboardButton(text="⬅️ Orqaga"),
+        KeyboardButton(text="💳 Taminotchi qarz to'lash"),
     )
+    builder.row(KeyboardButton(text="⬅️ Orqaga"))
     return builder.as_markup(resize_keyboard=True)
 
 

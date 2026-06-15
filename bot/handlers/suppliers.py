@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from bot.states import SupplierSt
-from bot.keyboards.menus import suppliers_kb, cancel_kb, inline_items_kb, purchases_kb
+from bot.keyboards.menus import suppliers_kb, cancel_kb, inline_items_kb
 from bot.database.connection import get_pool
 
 router = Router()
@@ -123,10 +123,36 @@ async def supplier_add_phone(message: Message, state: FSMContext, shop_id: int =
     )
 
 
-@router.message(SupplierSt.selected)
-async def supplier_pay_debt_start(message: Message, state: FSMContext):
-    await message.answer("💰 To'lov miqdori (so'm):", reply_markup=cancel_kb())
+@router.message(F.text == "💳 Taminotchi qarz to'lash")
+async def supplier_select_for_debt(message: Message, state: FSMContext, shop_id: int = None):
+    if shop_id is None:
+        return
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT id, name, debt_som FROM suppliers
+               WHERE shop_id=$1 AND debt_som > 0 ORDER BY name""",
+            shop_id
+        )
+    if not rows:
+        await message.answer("✅ Qarzli taminotchi yo'q!")
+        return
+    items = [{"id": r["id"], "label": f"{r['name']} — {r['debt_som']:,.0f} so'm"} for r in rows]
+    await message.answer("🏭 Taminotchini tanlang:", reply_markup=inline_items_kb(items, "pay_sup"))
+    await state.set_state(SupplierSt.selected)
+
+
+@router.callback_query(SupplierSt.selected, F.data.startswith("pay_sup:"))
+async def supplier_debt_pay_select(cb: CallbackQuery, state: FSMContext):
+    sup_id = int(cb.data.split(":")[1])
+    await state.update_data(sup_id=sup_id)
+    await cb.message.edit_reply_markup()
+    await cb.message.answer("💰 To'lov miqdori (so'm):", reply_markup=cancel_kb())
     await state.set_state(SupplierSt.paying_debt_som)
+    await cb.answer()
+
+
+@router.message(SupplierSt.paying_debt_som)
 
 
 @router.message(SupplierSt.paying_debt_som)

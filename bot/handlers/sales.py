@@ -305,28 +305,33 @@ async def _save_sale(message, state, shop_id):
                     "UPDATE customers SET debt_som=debt_som+$1 WHERE id=$2", debt_som, cust_id
                 )
             # Kassani yangilash
+            # net_naxt = naqd tomonidan qolgan (qaytim chegirilgan) + dollar (har doim naqd)
+            # change_som har doim naqd pulda qaytariladi
+            net_naxt = (paid_som if payment_method == "naxt" else 0) + paid_usd_in_som - change_som
+            net_karta = paid_som if payment_method == "karta" else 0
+
             await conn.execute(
                 "INSERT INTO kassa (shop_id) VALUES ($1) ON CONFLICT (shop_id) DO NOTHING",
                 shop_id
             )
-            if payment_method == "naxt":
+            if net_naxt > 0:
                 await conn.execute(
                     "UPDATE kassa SET naxt_som=naxt_som+$1, updated_at=NOW() WHERE shop_id=$2",
-                    paid_som, shop_id
+                    net_naxt, shop_id
                 )
-            else:
+            elif net_naxt < 0:
+                # Karta bilan to'landi, qaytim naqd kassadan berildi
+                await conn.execute(
+                    "UPDATE kassa SET naxt_som=GREATEST(0, naxt_som+$1), updated_at=NOW() WHERE shop_id=$2",
+                    net_naxt, shop_id
+                )
+            if net_karta > 0:
                 await conn.execute(
                     "UPDATE kassa SET karta_som=karta_som+$1, updated_at=NOW() WHERE shop_id=$2",
-                    paid_som, shop_id
+                    net_karta, shop_id
                 )
-            # Dollar to'lov har doim naqd
-            if paid_usd_in_som > 0:
-                await conn.execute(
-                    "UPDATE kassa SET naxt_som=naxt_som+$1, updated_at=NOW() WHERE shop_id=$2",
-                    paid_usd_in_som, shop_id
-                )
-            # Kassa harakati
-            total_income = paid_som + paid_usd_in_som
+            # Kassa harakati: qaytimdan keyin real tushgan miqdor
+            total_income = max(0.0, net_naxt) + net_karta
             if total_income > 0:
                 await conn.execute(
                     """INSERT INTO kassa_movements
