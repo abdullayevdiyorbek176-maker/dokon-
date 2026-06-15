@@ -7,7 +7,9 @@ _pool: asyncpg.Pool | None = None
 async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+        # Neon/Railway kabi bulut DBlar SSL talab qiladi
+        ssl = "require" if "neon.tech" in DATABASE_URL or "railway" in DATABASE_URL else None
+        _pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10, ssl=ssl)
     return _pool
 
 
